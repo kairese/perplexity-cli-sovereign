@@ -44,6 +44,11 @@ import {
   createTaskToolProgressHandler,
   computeUsageFromMetrics,
 } from './utils/nonInteractiveHelpers.js';
+import {
+  routeMission,
+  type ExplicitMode,
+} from './nonInteractive/missionRouting.js';
+import { buildSystemPrompt } from './config/promptProfiles.js';
 
 /**
  * Provides optional overrides for `runNonInteractive` execution.
@@ -58,6 +63,48 @@ export interface RunNonInteractiveOptions {
   adapter?: JsonOutputAdapterInterface;
   userMessage?: CLIUserMessage;
   controlService?: ControlService;
+}
+
+function getExplicitModeFromInput(input: string): ExplicitMode | undefined {
+  const lowered = input.toLowerCase();
+
+  if (
+    lowered.includes('mode: code') ||
+    lowered.includes('mode code') ||
+    lowered.includes('--mode=code') ||
+    lowered.includes('--mode code')
+  ) {
+    return 'code';
+  }
+
+  if (
+    lowered.includes('mode: research') ||
+    lowered.includes('mode research') ||
+    lowered.includes('--mode=research') ||
+    lowered.includes('--mode research')
+  ) {
+    return 'research';
+  }
+
+  if (
+    lowered.includes('mode: ops') ||
+    lowered.includes('mode ops') ||
+    lowered.includes('--mode=ops') ||
+    lowered.includes('--mode ops')
+  ) {
+    return 'ops';
+  }
+
+  if (
+    lowered.includes('mode: fast') ||
+    lowered.includes('mode fast') ||
+    lowered.includes('--mode=fast') ||
+    lowered.includes('--mode fast')
+  ) {
+    return 'fast';
+  }
+
+  return undefined;
 }
 
 /**
@@ -164,7 +211,35 @@ export async function runNonInteractive(
       }
 
       const initialParts = normalizePartList(initialPartList);
-      let currentMessages: Content[] = [{ role: 'user', parts: initialParts }];
+      const explicitMode = getExplicitModeFromInput(input);
+      const routing = routeMission(input, explicitMode);
+      const routingSystemPrompt = buildSystemPrompt(routing.lane);
+
+      const existingModel = config.getModel();
+      const modelOverrideApplied =
+        existingModel !== routing.model &&
+        typeof (config as Config & { setModel?: (model: string) => void }).setModel ===
+          'function';
+
+      if (modelOverrideApplied) {
+        (config as Config & { setModel?: (model: string) => void }).setModel?.(
+          routing.model,
+        );
+      }
+
+      const routedParts: Part[] = [
+        { text: routingSystemPrompt },
+        { text: '\n\nUser request:\n' },
+        ...initialParts,
+      ];
+
+      let currentMessages: Content[] = [{ role: 'user', parts: routedParts }];
+
+      if (config.getDebugMode()) {
+        console.error(
+          `[runNonInteractive] lane=${routing.lane} model=${routing.model} reason=${routing.reason}`,
+        );
+      }
 
       if (adapter) {
         const systemMessage = await buildSystemMessage(
