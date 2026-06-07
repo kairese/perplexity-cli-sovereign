@@ -49,6 +49,7 @@ import {
   type ExplicitMode,
 } from './nonInteractive/missionRouting.js';
 import { buildSystemPrompt } from './config/promptProfiles.js';
+import { fetchMeshContext } from './nonInteractive/meshContext.js';
 
 /**
  * Provides optional overrides for `runNonInteractive` execution.
@@ -227,11 +228,18 @@ export async function runNonInteractive(
         );
       }
 
+      const meshCtx = await fetchMeshContext(input);
       const routedParts: Part[] = [
         { text: routingSystemPrompt },
+        { text: meshCtx.contextText },
         { text: '\n\nUser request:\n' },
         ...initialParts,
       ];
+      if (config.getDebugMode() && meshCtx.reachable) {
+        console.error(
+          `[runNonInteractive] meshCtx sources=${meshCtx.sourceCount}`,
+        );
+      }
 
       let currentMessages: Content[] = [{ role: 'user', parts: routedParts }];
 
