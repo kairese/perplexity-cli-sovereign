@@ -49,9 +49,9 @@ function modelForLane(lane: MissionLane): string {
     case 'fast':
       return process.env['PERPLEXITY_MODEL_FAST'] || 'sonar-pro';
     case 'code':
-      return process.env['PERPLEXITY_MODEL_CODE'] || 'sonar-reasoning';
+      return process.env['PERPLEXITY_MODEL_CODE'] || 'sonar-pro';
     case 'ops':
-      return process.env['PERPLEXITY_MODEL_OPS'] || 'sonar-reasoning';
+      return process.env['PERPLEXITY_MODEL_OPS'] || 'sonar-pro';
     case 'research':
       return process.env['PERPLEXITY_MODEL_RESEARCH'] || 'sonar-pro';
     default:
